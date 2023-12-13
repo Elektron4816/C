@@ -1,0 +1,179 @@
+#include "calc.h"
+#include "stack.h"
+
+int main() {
+
+  char string[255] = "sin(1)*cos(1)-2=";
+  double result = 0;
+  result = main_func(string);
+  printf("%f\n", result);
+  return 0;
+}
+
+double main_func(char *input_string) {
+  Stack numbers = create_stack();
+  Stack sign = create_stack();
+  Flag flag = {1, 0, 1, 1, 1};
+  // char input_string[255];
+  // fgets(input_string, 255, stdin);
+  int input_char = 0;
+  int count_from_number = 0;
+  int count_from_string_buf = 0;
+  char *buf_char_to_int = (char *)calloc(50, sizeof(char));
+  long double result_int = 0;
+  int previous_char = 0;
+  while ((input_char = input_string[count_from_string_buf]) != '\0') {
+    if (check_valid(previous_char, input_char)) {
+      if ((input_char <= '9' && input_char >= '0') || input_char == '.') {
+        buf_char_to_int[count_from_number] = input_char;
+        count_from_number++;
+        flag.flag_num = 1;
+      } else {
+        if (flag.flag_result && flag.flag_num) {
+          count_from_number = 0;
+          result_int = s21_atof(buf_char_to_int);
+          push_stack(&numbers, result_int);
+          if (strlen(buf_char_to_int) != 0) {
+            free_buf(buf_char_to_int);
+          }
+        }
+        flag.flag_num = 0;
+        input_char = find_trig_func(input_char, input_string,
+                                    count_from_string_buf, &flag);
+        if (input_char == '-' &&
+            input_string[count_from_string_buf + 1] == '-') {
+          input_char = '+';
+          count_from_string_buf += 1;
+        }
+        if (input_char == '-' &&
+            input_string[count_from_string_buf + 1] == '+') {
+          input_char = '-';
+          count_from_string_buf += 1;
+        }
+        if (input_char == '+' &&
+            input_string[count_from_string_buf + 1] == '+') {
+          input_char = '+';
+          count_from_string_buf += 1;
+        }
+        if (((input_char <= '/' && input_char >= '*') &&
+             input_string[count_from_string_buf + 1] == '-')) {
+          long double a = stack_pop(&numbers);
+          a *= -1;
+          push_stack(&numbers, a);
+          count_from_string_buf += 1;
+        }
+        if (((input_char <= '/' && input_char >= '*') &&
+             input_string[count_from_string_buf + 1] == '+')) {
+          count_from_string_buf += 1;
+        }
+        switch (input_char) {
+        case '-':
+          if (sign.length > 0 && priority_low(&sign)) {
+            printf("case -\n");
+            calculation(&numbers, &sign, &flag);
+          }
+          if (sign.length > 0 && priority_low(&sign)) {
+            printf("case -two\n");
+            calculation(&numbers, &sign, &flag);
+          }
+          push_stack(&sign, input_char);
+          break;
+        case '+':
+          if (sign.length > 0 && priority_low(&sign)) {
+            printf("case+\n");
+            calculation(&numbers, &sign, &flag);
+          }
+          if (sign.length > 0 && priority_low(&sign)) {
+            printf("case +two\n");
+            calculation(&numbers, &sign, &flag);
+          }
+          push_stack(&sign, input_char);
+          break;
+        case '/':
+          if (sign.length > 0 && priority_gran(&sign)) {
+            printf("case /\n");
+            calculation(&numbers, &sign, &flag);
+          }
+          if (sign.length > 0 && priority_gran(&sign)) {
+            printf("case /two\n");
+            calculation(&numbers, &sign, &flag);
+          }
+          push_stack(&sign, input_char);
+          break;
+        case '*':
+          if (sign.length > 0 && priority_gran(&sign)) {
+            printf("case *\n");
+            calculation(&numbers, &sign, &flag);
+          }
+          if (sign.length > 0 && priority_gran(&sign)) {
+            printf("case *two\n");
+            calculation(&numbers, &sign, &flag);
+          }
+          push_stack(&sign, input_char);
+          break;
+        case '^':
+          if (sign.length > 0) {
+            if (sign.values[sign.length - 1] <= 'J' &&
+                sign.values[sign.length - 1] >= 'A') {
+              printf("case ^\n");
+              calculation(&numbers, &sign, &flag);
+            }
+          }
+          push_stack(&sign, input_char);
+          break;
+        case 'A': // sin
+        case 'B': // cos
+        case 'C': // tan
+        case 'D': // asin
+        case 'E': // acos
+        case 'F': // atan
+        case 'G': // sqrt
+        case 'H': // ln
+        case 'I': // log
+        case 'J': // mod
+          push_stack(&sign, input_char);
+          break;
+        case '(':
+          push_stack(&sign, input_char);
+          break;
+        case ')':
+          if (priority_low(&sign)) {
+            printf("case )\n");
+            calculation(&numbers, &sign, &flag);
+          }
+          if (priority_low(&sign)) {
+            printf("case )two\n");
+            calculation(&numbers, &sign, &flag);
+          }
+          if (sign.values[sign.length - 1] == '(') {
+            sign.length -= 1;
+          }
+          break;
+        case '=':
+          while (sign.length > 0) {
+            printf("case=\n");
+            calculation(&numbers, &sign, &flag);
+          }
+          flag.flag_result = 0;
+          break;
+        default:
+          break;
+        }
+      }
+      previous_char = input_char;
+    } else {
+      printf("Enter wrong argument\n");
+      flag.flag_no_error = 0;
+      break;
+    }
+    count_from_string_buf++;
+  }
+  double grand_result = 0;
+  if (flag.flag_no_error) {
+    grand_result = stack_pop(&numbers);
+  }
+  free_stack(&numbers);
+  free_stack(&sign);
+  free(buf_char_to_int);
+  return grand_result;
+}
