@@ -1,145 +1,74 @@
-#include <ncurses.h>
-#include <stdio.h>
+#include <check.h>
 #include <stdlib.h>
-#include <time.h>
+#include <string.h>
 
-#define BOARD_WIDTH 10
-#define BOARD_HEIGHT 20
+#include "./brick_game/tetris/tetris.h"
+#include "./gui/cli/front.h"
 
-int board[BOARD_HEIGHT][BOARD_WIDTH] = {0};
-int currentPiece[4][4] = {0};
-int currentPieceColor = 0;
-int currentX = 0, currentY = 0;
+START_TEST(test_1) {
+  tetblock template[] = {
+      {0}, {1}, {0}, {0}, {0}, {1}, {0}, {0},
+      {0}, {1}, {0}, {0}, {0}, {1}, {0}, {0},
 
-int pieces[7][4][4] = {
-    {{0, 0, 0, 0},
-     {1, 1, 1, 1}, 
-     {0, 0, 0, 0}, 
-     {0, 0, 0, 0}}, 
+      {0}, {0}, {0}, {0}, {0}, {1}, {1}, {0},
+      {0}, {1}, {1}, {0}, {0}, {0}, {0}, {0},
 
-    {{0, 0, 0, 0}, 
-     {0, 1, 1, 0},
-     {0, 1, 1, 0},
-     {0, 0, 0, 0}},
+      {0}, {0}, {0}, {0}, {0}, {1}, {1}, {0},
+      {1}, {1}, {0}, {0}, {0}, {0}, {0}, {0},
 
-    {{0, 0, 0, 0}, 
-     {0, 1, 1, 0}, 
-     {1, 1, 0, 0},
-     {0, 0, 0, 0}},
+      {0}, {0}, {0}, {0}, {1}, {1}, {1}, {0},
+      {0}, {1}, {0}, {0}, {0}, {0}, {0}, {0},
 
-    {{0, 0, 0, 0},
-     {1, 1, 1, 0},
-     {0, 1, 0, 0}, 
-     {0, 0, 0, 0}},
+      {0}, {0}, {0}, {0}, {1}, {1}, {0}, {0},
+      {0}, {1}, {1}, {0}, {0}, {0}, {0}, {0},
 
-    {{0, 0, 0, 0}, 
-     {1, 1, 0, 0},
-     {0, 1, 1, 0},
-     {0, 0, 0, 0}},
+      {0}, {0}, {0}, {0}, {0}, {0}, {1}, {0},
+      {1}, {1}, {1}, {0}, {0}, {0}, {0}, {0},
 
-    {{0, 0, 0, 0}, 
-     {0, 0, 0, 0}, 
-     {1, 1, 1, 0},
-     {0, 0, 0, 0}},
+      {0}, {0}, {0}, {0}, {1}, {0}, {0}, {0},
+      {1}, {1}, {1}, {0}, {0}, {0}, {0}, {0},
+  };
 
-    {{0, 0, 0, 0},
-     {1, 0, 0, 0},    
-     {1, 1, 1, 0},
-     {0, 0, 0, 0}}};
-
-void init() {
-  srand(time(NULL));
-  currentPieceColor = rand() % 7;
-  currentX = BOARD_WIDTH / 2 - 2;
-  currentY = 0;
-
-  int i, j;
-  for (i = 0; i < 4; i++) {
-    for (j = 0; j < 4; j++) {
-      currentPiece[i][j] = pieces[currentPieceColor][i][j];
+  tetgame_t *tet_g = create_tet_game(MAX_WIDTH, MAX_HEIGTH, 4, 7, template);
+  tetplayer player;
+  player.action = PLAYER_NOP;
+  tet_g->player = &player;
+  drop_new_figure(tet_g);
+  print_field();
+  while (tet_g->play != GAMEOVER) {
+    switch (getch()) {
+      default:
+        player.action = PLAYER_NOP;
+        break;
     }
+    calculate_tet(tet_g);
+    print_tet_game(tet_g);
   }
+  print_end_box(tet_g);
+  free_tet_game(tet_g);
 }
+END_TEST
 
-void draw() {
-  refresh();
-  printf("\n   ====[ TETRIS ]====\n\n");
+Suite *tetris_suite_create(void) {
+  Suite *tetris = suite_create("tetris");
+  TCase *tetris_test = tcase_create("tetris_test");
 
-  int i, j;
-  for (i = 0; i < BOARD_HEIGHT; i++) {
-    printf("   ");
-    for (j = 0; j < BOARD_WIDTH; j++) {
-      if (board[i][j] == 0)
-        printf(". ");
-      else
-        printf("# ");
-    }
-    printf("\n");
-  }
-}
-
-int checkCollision(int x, int y) {
-  int i, j;
-  for (i = 0; i < 4; i++) {
-    for (j = 0; j < 4; j++) {
-      if (currentPiece[i][j] && (board[y + i][x + j] || x + j < 0 ||
-                                 x + j >= BOARD_WIDTH || y + i >= BOARD_HEIGHT))
-        return 1;
-    }
-  }
-  return 0;
-}
-
-void merge() {
-  int i, j;
-  for (i = 0; i < 4; i++) {
-    for (j = 0; j < 4; j++) {
-      if (currentPiece[i][j]) board[currentY + i][currentX + j] = 1;
-    }
-  }
-}
-
-void handleInput() {
-  // if (_kbhit()) {
-  int key = getch();
-  switch (key) {
-    case 'a':
-      if (!checkCollision(currentX - 1, currentY)) currentX--;
-      break;
-
-    case 'd':
-      if (!checkCollision(currentX + 1, currentY)) currentX++;
-      break;
-
-    case 's':
-      if (!checkCollision(currentX, currentY + 1)) currentY++;
-      break;
-
-    case 'q':
-      exit(0);
-      break;
-  }
-  // }
-}
-
-void update() {
-  if (!checkCollision(currentX, currentY + 1)) {
-    currentY++;
-  } else {
-    merge();
-    init();
-  }
+  tcase_add_test(tetris_test, test_1);
+  suite_add_tcase(tetris, tetris_test);
+  return tetris;
 }
 
 int main() {
-    initscr();
-  init();
+  Suite *tetris = tetris_suite_create();
+  SRunner *tetris_suite_runner = srunner_create(tetris);
+  int failed_cnt;
+  srunner_run_all(tetris_suite_runner, CK_NORMAL);
+  failed_cnt = srunner_ntests_failed(tetris_suite_runner);
+  srunner_free(tetris_suite_runner);
 
-  while (1) {
-    draw();
-    // handleInput();
-    update();
+  if (failed_cnt != 0) {
+    return EXIT_FAILURE;
   }
-    endwin();
-  return 0;
+
+  return EXIT_SUCCESS;
 }
